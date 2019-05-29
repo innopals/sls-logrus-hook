@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -31,6 +32,9 @@ const (
 	HeaderLogVersion         = "x-log-apiversion"
 	HeaderLogSignatureMethod = "x-log-signaturemethod"
 	HeaderLogBodyRawSize     = "x-log-bodyrawsize"
+	MaxLogItemSize           = 512 * 1024      // Safe value for maximum 1M log item.
+	MaxLogGroupSize          = 4 * 1024 * 1024 // Safe value for maximum 5M log group
+	MaxLogBatchSize          = 1024            // Safe value for batch send size
 )
 
 type SlsClient struct {
@@ -92,13 +96,19 @@ func (client *SlsClient) Ping() error {
 }
 
 func (client *SlsClient) SendLogs(logs []*Log) error {
-	// TODO Split logs when log size exceeds 1M or log group size exceed 5M.
-	for _, log := range logs {
-		fmt.Println(log)
+	if len(logs) == 0 {
+		return nil
+	}
+	if len(logs) > MaxLogBatchSize {
+		return errors.Errorf("Log batch size should not exceed %d.", MaxLogBatchSize)
 	}
 	group := LogGroup{}
 	group.Logs = logs
 	body, err := proto.Marshal(&group)
+	if len(body) > MaxLogGroupSize {
+		// Extreme cases when log group size exceed the maximum
+		return client.splitSendLogs(logs)
+	}
 	if err != nil {
 		return err
 	}
@@ -107,6 +117,62 @@ func (client *SlsClient) SendLogs(logs []*Log) error {
 		return err
 	}
 	return nil
+}
+
+func logSize(log *Log) int {
+	// Estimate log size
+	size := 4
+	for _, content := range log.Contents {
+		size += len(*content.Key) + len(*content.Value) + 8
+	}
+	return size
+}
+
+func (client *SlsClient) splitSendLogs(logs []*Log) error {
+	var errorList []error
+	cursor := 0
+	for cursor < len(logs) {
+		groupSize := 0
+		group := LogGroup{
+			Logs: make([]*Log, 0),
+		}
+		for cursor < len(logs) {
+			log := logs[cursor]
+			size := logSize(log)
+			if groupSize+size > MaxLogGroupSize {
+				break
+			}
+			cursor++
+			if size > MaxLogItemSize {
+				// Print huge single log to stdout
+				_, _ = fmt.Fprintf(os.Stdout, "[HUGE SLS LOG] %+v", log)
+				continue
+			}
+			groupSize += size
+			group.Logs = append(group.Logs, log)
+		}
+
+		body, err := proto.Marshal(&group)
+		if len(body) > MaxLogGroupSize {
+			// Extreme cases when log group size exceed the maximum
+			_, _ = fmt.Fprintf(os.Stdout, "[HUGE SLS LOG GROUP] %+v", group)
+			continue
+		}
+		if err != nil {
+			errorList = append(errorList, err)
+			continue
+		}
+		err = client.sendPb(body)
+		if err != nil {
+			errorList = append(errorList, err)
+			continue
+		}
+	}
+	if len(errorList) == 0 {
+		return nil
+	} else {
+		return errors.Errorf("Fail to send logs due to the following errors: %+v", errorList)
+	}
 }
 
 func (client *SlsClient) sendPb(logContent []byte) error {

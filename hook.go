@@ -3,12 +3,15 @@ package hook
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"os"
-	"sync"
-	"time"
 )
 
 const (
@@ -27,7 +30,7 @@ type SlsLogrusHook struct {
 	realSendLogs func(logs []*Log) error
 }
 
-func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, logStore string, topic string) (logrus.Hook, error) {
+func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, logStore string, topic string) (*SlsLogrusHook, error) {
 	client, err := NewSlsClient(endpoint, accessKey, accessSecret, logStore)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Unable to create sls logrus hook")
@@ -47,7 +50,17 @@ func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, lo
 	if err != nil {
 		hook.realSendLogs = fallbackSendLogs
 		_, _ = fmt.Fprintf(os.Stderr, "Fail to send logs to sls, fallback to stdout. error: %v", err.Error())
+	} else{
+		hook.realSendLogs = client.SendLogs
 	}
+	var gracefulStop = make(chan os.Signal)
+	signal.Notify(gracefulStop, syscall.SIGTERM)
+	signal.Notify(gracefulStop, syscall.SIGINT)
+	go func() {
+		<-gracefulStop
+		fmt.Println("Flushing logs")
+		time.Sleep(time.Second)
+	}()
 	return hook, errors.WithStack(err)
 }
 
@@ -107,6 +120,13 @@ func (hook *SlsLogrusHook) Levels() []logrus.Level {
 	return logrus.AllLevels
 }
 
+func (hook *SlsLogrusHook) Flush(timeout time.Duration) {
+	until := time.Now().UnixNano() + int64(timeout)
+	for (hook.sending || len(hook.c) > 0) && time.Now().UnixNano() < until {
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func (hook *SlsLogrusHook) startWork() {
 	hook.lock.Lock()
 	defer hook.lock.Unlock()
@@ -155,7 +175,7 @@ func (hook *SlsLogrusHook) work() {
 
 func fallbackSendLogs(logs []*Log) error {
 	for _, log := range logs {
-		_, _ = fmt.Fprint(os.Stdout, log)
+		_, _ = fmt.Fprint(os.Stdout, log, "\n")
 	}
 	return nil
 }
