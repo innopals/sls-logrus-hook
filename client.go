@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	DefaultTimeout           = 5 * time.Second
-	MaxLogItemSize           = 512 * 1024      // Safe value for maximum 1M log item.
-	MaxLogGroupSize          = 4 * 1024 * 1024 // Safe value for maximum 5M log group
-	MaxLogBatchSize          = 1024            // Safe value for batch send size
+	DefaultTimeout  = 5 * time.Second
+	MaxLogItemSize  = 512 * 1024      // Safe value for maximum 1M log item.
+	MaxLogGroupSize = 4 * 1024 * 1024 // Safe value for maximum 5M log group
+	MaxLogBatchSize = 1024            // Safe value for batch send size
 )
 
 type SlsClient struct {
@@ -86,7 +86,11 @@ func (client *SlsClient) Ping() error {
 	}
 
 	resp, err := client.client.Do(req)
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
+	}()
 	if err != nil {
 		return errors.WithMessage(err, "Error sending log with http client")
 	}
@@ -194,7 +198,6 @@ func (client *SlsClient) sendPb(logContent []byte) error {
 	headers[HeaderContentLength] = fmt.Sprintf("%v", len(logContent))
 	headers[HeaderLogBodyRawSize] = "0"
 	headers[HeaderHost] = client.endpoint
-
 	headers[HeaderDate] = time.Now().UTC().Format(http.TimeFormat)
 
 	if sign, e := ApiSign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource)); e != nil {
@@ -218,7 +221,11 @@ func (client *SlsClient) sendPb(logContent []byte) error {
 	}
 
 	resp, err := client.client.Do(req)
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
+	}()
 	if err != nil {
 		return errors.WithMessage(err, "Error sending log with http client")
 	}

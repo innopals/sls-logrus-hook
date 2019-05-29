@@ -4,10 +4,8 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
-	"net/http"
 	"sort"
 	"strings"
-	"time"
 )
 
 func ApiSign(secret string, method string, headers map[string]string, resource string) (string, error) {
@@ -15,8 +13,7 @@ func ApiSign(secret string, method string, headers map[string]string, resource s
 	signItems := make([]string, 0)
 	signItems = append(signItems, method)
 
-	var contentMD5, contentType string
-	date := time.Now().UTC().Format(http.TimeFormat)
+	var contentMD5, contentType, date string
 
 	if v, exist := headers[HeaderContentMd5]; exist {
 		contentMD5 = v
