@@ -57,25 +57,45 @@ func NewSlsClient(endpoint string, accessKey string, accessSecret string, logSto
 }
 
 func (client *SlsClient) Ping() error {
-	// TODO use get log store to ping connection
-	group := LogGroup{}
-	group.Logs = []*Log{{
-		Time: proto.Uint32(uint32(time.Now().Unix())),
-		Contents: []*LogContent{{
-			Key:   proto.String("__topic__"),
-			Value: proto.String("status"),
-		}, {
-			Key:   proto.String("message"),
-			Value: proto.String("Status check by sls-logrus-hook."),
-		}},
-	}}
-	body, err := proto.Marshal(&group)
-	if err != nil {
-		return err
+	method := "GET"
+	resource := "logstores/" + client.logStore
+	headers := make(map[string]string)
+
+	headers[HeaderLogVersion] = SlsVersion
+	headers[HeaderLogSignatureMethod] = SlsSignatureMethod
+	headers[HeaderHost] = client.endpoint
+	headers[HeaderDate] = time.Now().UTC().Format(http.TimeFormat)
+
+	if sign, e := ApiSign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource)); e != nil {
+		return errors.WithMessage(e, "Fail to create sign for sls")
+	} else {
+		headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 	}
-	err = client.sendPb(body)
+
+	url := client.endpoint + "/" + resource
+	if !strings.HasPrefix(client.endpoint, "http://") || strings.HasPrefix(client.endpoint, "https://") {
+		url = "http://" + client.endpoint + "/" + resource
+	}
+
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		return err
+		return errors.WithMessage(err, "Error creating http request for sls")
+	}
+	for header, value := range headers {
+		req.Header.Add(header, value)
+	}
+
+	resp, err := client.client.Do(req)
+	defer func() { _ = resp.Body.Close() }()
+	if err != nil {
+		return errors.WithMessage(err, "Error sending log with http client")
+	}
+	if resp.StatusCode != 200 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(body))
 	}
 	return nil
 }
@@ -198,11 +218,11 @@ func (client *SlsClient) sendPb(logContent []byte) error {
 	}
 
 	resp, err := client.client.Do(req)
+	defer func() { _ = resp.Body.Close() }()
 	if err != nil {
 		return errors.WithMessage(err, "Error sending log with http client")
 	}
 	if resp.StatusCode != 200 {
-		defer func() { _ = resp.Body.Close() }()
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return err
