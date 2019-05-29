@@ -2,15 +2,11 @@ package hook
 
 import (
 	"bytes"
-	"crypto/hmac"
 	"crypto/md5"
-	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -21,17 +17,6 @@ import (
 
 const (
 	DefaultTimeout           = 5 * time.Second
-	SlsVersion               = "0.6.0"
-	SlsSignatureMethod       = "hmac-sha1"
-	HeaderAuthorization      = "Authorization"
-	HeaderContentType        = "Content-Type"
-	HeaderContentLength      = "Content-Length"
-	HeaderContentMd5         = "Content-MD5"
-	HeaderDate               = "Date"
-	HeaderHost               = "Host"
-	HeaderLogVersion         = "x-log-apiversion"
-	HeaderLogSignatureMethod = "x-log-signaturemethod"
-	HeaderLogBodyRawSize     = "x-log-bodyrawsize"
 	MaxLogItemSize           = 512 * 1024      // Safe value for maximum 1M log item.
 	MaxLogGroupSize          = 4 * 1024 * 1024 // Safe value for maximum 5M log group
 	MaxLogBatchSize          = 1024            // Safe value for batch send size
@@ -192,7 +177,7 @@ func (client *SlsClient) sendPb(logContent []byte) error {
 
 	headers[HeaderDate] = time.Now().UTC().Format(http.TimeFormat)
 
-	if sign, e := client.Sign(method, headers, fmt.Sprintf("/%s", resource)); e != nil {
+	if sign, e := ApiSign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource)); e != nil {
 		return errors.WithMessage(e, "Fail to create sign for sls")
 	} else {
 		headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
@@ -225,45 +210,4 @@ func (client *SlsClient) sendPb(logContent []byte) error {
 		return errors.New(string(body))
 	}
 	return nil
-}
-
-func (client *SlsClient) Sign(method string, headers map[string]string, resource string) (string, error) {
-
-	signItems := make([]string, 0)
-	signItems = append(signItems, method)
-
-	var contentMD5, contentType string
-	date := time.Now().UTC().Format(http.TimeFormat)
-
-	if v, exist := headers[HeaderContentMd5]; exist {
-		contentMD5 = v
-	}
-	if v, exist := headers[HeaderContentType]; exist {
-		contentType = v
-	}
-	if v, exist := headers[HeaderDate]; exist {
-		date = v
-	}
-
-	logHeaders := make([]string, 0)
-	for k, v := range headers {
-		if strings.HasPrefix(k, "x-log") || strings.HasPrefix(k, "x-acs") {
-			logHeaders = append(logHeaders, k+":"+strings.TrimSpace(v))
-		}
-	}
-
-	sort.Sort(sort.StringSlice(logHeaders))
-
-	stringToSign := method + "\n" +
-		contentMD5 + "\n" +
-		contentType + "\n" +
-		date + "\n" +
-		strings.Join(logHeaders, "\n") + "\n" +
-		resource
-
-	sha1Hash := hmac.New(sha1.New, []byte(client.accessSecret))
-	if _, e := sha1Hash.Write([]byte(stringToSign)); e != nil {
-		return "", e
-	}
-	return base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), nil
 }
