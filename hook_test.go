@@ -61,7 +61,7 @@ func TestLogs(t *testing.T) {
 		sha1Hash := hmac.New(sha1.New, []byte("test"))
 		_, e := sha1Hash.Write([]byte(stringToSign))
 		assert.Nil(t, e)
-		assert.Equal(t, "LOG test:" + base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), req.Header.Get("Authorization"))
+		assert.Equal(t, "LOG test:"+base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), req.Header.Get("Authorization"))
 	case <-time.After(100 * time.Millisecond):
 		t.Errorf("Mock server should have received a request.")
 	}
@@ -82,7 +82,7 @@ func TestLogs(t *testing.T) {
 		sha1Hash := hmac.New(sha1.New, []byte("test"))
 		_, e := sha1Hash.Write([]byte(stringToSign))
 		assert.Nil(t, e)
-		assert.Equal(t, "LOG test:" + base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), req.Header.Get("Authorization"))
+		assert.Equal(t, "LOG test:"+base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), req.Header.Get("Authorization"))
 	case <-time.After(300 * time.Millisecond):
 		t.Errorf("Mock server should have received a request.")
 	}

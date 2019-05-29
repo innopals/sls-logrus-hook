@@ -50,7 +50,7 @@ func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, lo
 	if err != nil {
 		hook.realSendLogs = fallbackSendLogs
 		_, _ = fmt.Fprintf(os.Stderr, "Fail to send logs to sls, fallback to stdout. error: %v", err.Error())
-	} else{
+	} else {
 		hook.realSendLogs = client.SendLogs
 	}
 	var gracefulStop = make(chan os.Signal)
@@ -138,7 +138,7 @@ func (hook *SlsLogrusHook) startWork() {
 }
 
 func (hook *SlsLogrusHook) work() {
-	for ; ; {
+	for {
 		if !hook.sending {
 			return
 		}
