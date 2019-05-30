@@ -1,9 +1,9 @@
 package hook_test
 
 import (
-	hook "sls-logrus-hook"
 	"testing"
 
+	hook "github.com/innopals/sls-logrus-hook"
 	"github.com/stretchr/testify/assert"
 )
 

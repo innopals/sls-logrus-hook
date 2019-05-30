@@ -1,10 +1,11 @@
 package hook_test
 
 import (
+	"testing"
+
+	hook "github.com/innopals/sls-logrus-hook"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"sls-logrus-hook"
-	"testing"
 )
 
 func TestNoopFormatter(t *testing.T) {

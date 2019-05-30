@@ -5,15 +5,16 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"github.com/gogo/protobuf/proto"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"sls-logrus-hook"
 	"testing"
 	"time"
+
+	"github.com/gogo/protobuf/proto"
+	hook "github.com/innopals/sls-logrus-hook"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLogs(t *testing.T) {

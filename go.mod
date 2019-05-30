@@ -1,4 +1,4 @@
-module sls-logrus-hook
+module github.com/innopals/sls-logrus-hook
 
 go 1.12
 
