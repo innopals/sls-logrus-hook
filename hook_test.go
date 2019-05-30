@@ -17,18 +17,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type RequestWrapper struct {
+	Request *http.Request
+	Body    []byte
+}
+
 func TestLogs(t *testing.T) {
-	requests := make(chan *http.Request, 3)
-	contents := make(chan []byte, 3)
+	requests := make(chan *RequestWrapper, 3)
 	mockServer := &http.Server{
 		Addr: ":8080",
 		Handler: http.HandlerFunc(func(writer http.ResponseWriter, req *http.Request) {
-			requests <- req
+			wrapper := &RequestWrapper{}
+			wrapper.Request = req
 			if req.Method == "POST" {
 				bytes, err := ioutil.ReadAll(req.Body)
 				assert.Nil(t, err)
-				contents <- bytes
+				wrapper.Body = bytes
 			}
+			requests <- wrapper
 			writer.WriteHeader(200)
 		}),
 		ReadTimeout:    3 * time.Second,
@@ -54,15 +60,15 @@ func TestLogs(t *testing.T) {
 	}()
 
 	select {
-	case req := <-requests:
-		assert.Equal(t, "GET", req.Method)
-		assert.Equal(t, "/logstores/test", req.RequestURI)
-		date := req.Header.Get("Date")
+	case wrapper := <-requests:
+		assert.Equal(t, "GET", wrapper.Request.Method)
+		assert.Equal(t, "/logstores/test", wrapper.Request.RequestURI)
+		date := wrapper.Request.Header.Get("Date")
 		stringToSign := "GET\n\n\n" + date + "\nx-log-apiversion:0.6.0\nx-log-signaturemethod:hmac-sha1\n/logstores/test"
 		sha1Hash := hmac.New(sha1.New, []byte("test"))
 		_, e := sha1Hash.Write([]byte(stringToSign))
 		assert.Nil(t, e)
-		assert.Equal(t, "LOG test:"+base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), req.Header.Get("Authorization"))
+		assert.Equal(t, "LOG test:"+base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), wrapper.Request.Header.Get("Authorization"))
 	case <-time.After(100 * time.Millisecond):
 		t.Errorf("Mock server should have received a request.")
 	}
@@ -74,26 +80,23 @@ func TestLogs(t *testing.T) {
 	logrus.Info("Hello world!")
 	var date string
 	select {
-	case req := <-requests:
-		assert.Equal(t, "POST", req.Method)
-		assert.Equal(t, "/logstores/test/shards/lb", req.RequestURI)
-		date = req.Header.Get("Date")
-		md5 := req.Header.Get("Content-Md5")
+	case wrapper := <-requests:
+		assert.Equal(t, "POST", wrapper.Request.Method)
+		assert.Equal(t, "/logstores/test/shards/lb", wrapper.Request.RequestURI)
+		date = wrapper.Request.Header.Get("Date")
+		md5 := wrapper.Request.Header.Get("Content-Md5")
 		stringToSign := "POST\n" + md5 + "\napplication/x-protobuf\n" + date + "\nx-log-apiversion:0.6.0\nx-log-bodyrawsize:0\nx-log-signaturemethod:hmac-sha1\n/logstores/test/shards/lb"
 		sha1Hash := hmac.New(sha1.New, []byte("test"))
 		_, e := sha1Hash.Write([]byte(stringToSign))
 		assert.Nil(t, e)
-		assert.Equal(t, "LOG test:"+base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), req.Header.Get("Authorization"))
-	case <-time.After(300 * time.Millisecond):
-		t.Errorf("Mock server should have received a request.")
-	}
+		assert.Equal(t, "LOG test:"+base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), wrapper.Request.Header.Get("Authorization"))
 
-	select {
-	case content := <-contents:
 		group := new(hook.LogGroup)
-		assert.Nil(t, proto.Unmarshal(content, group))
+		assert.Nil(t, proto.Unmarshal(wrapper.Body, group))
 		assert.Equal(t, 1, len(group.Logs))
-		assert.Equal(t, date, time.Unix(int64(*group.Logs[0].Time), 0).UTC().Format(http.TimeFormat))
+		apiTime, err := time.Parse(http.TimeFormat, date)
+		assert.Nil(t, err)
+		assert.InDelta(t, apiTime.Unix(), int32(*group.Logs[0].Time), 1)
 		assert.Equal(t, "__topic__", *group.Logs[0].Contents[0].Key)
 		assert.Equal(t, "test", *group.Logs[0].Contents[0].Value)
 		assert.Equal(t, "level", *group.Logs[0].Contents[1].Key)
@@ -101,6 +104,6 @@ func TestLogs(t *testing.T) {
 		assert.Equal(t, "message", *group.Logs[0].Contents[2].Key)
 		assert.Equal(t, "Hello world!", *group.Logs[0].Contents[2].Value)
 	case <-time.After(300 * time.Millisecond):
-		t.Errorf("Mock server should have received a request content.")
+		t.Errorf("Mock server should have received a request.")
 	}
 }
