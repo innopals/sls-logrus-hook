@@ -23,18 +23,29 @@ const (
 	MaxLogBatchSize = 1024            // Safe value for batch send size
 )
 
+var logSource string
+
+func init() {
+	var err error
+	logSource, err = os.Hostname()
+	if err != nil {
+		logSource = "unknown_source"
+	}
+}
+
 // SlsClient the client struct for sls connection
 type SlsClient struct {
 	endpoint     string
 	accessKey    string
 	accessSecret string
 	logStore     string
+	topic        string
 	lock         *sync.Mutex
 	client       *http.Client
 }
 
 // NewSlsClient create a new sls client
-func NewSlsClient(endpoint string, accessKey string, accessSecret string, logStore string) (*SlsClient, error) {
+func NewSlsClient(endpoint string, accessKey string, accessSecret string, logStore string, topic string) (*SlsClient, error) {
 	if len(endpoint) == 0 {
 		return nil, errors.New("Sls endpoint should not be empty")
 	}
@@ -52,6 +63,7 @@ func NewSlsClient(endpoint string, accessKey string, accessSecret string, logSto
 		accessKey:    accessKey,
 		accessSecret: accessSecret,
 		logStore:     logStore,
+		topic:        topic,
 		lock:         &sync.Mutex{},
 		client: &http.Client{
 			Timeout: DefaultTimeout,
@@ -118,6 +130,8 @@ func (client *SlsClient) SendLogs(logs []*Log) error {
 	}
 	group := LogGroup{}
 	group.Logs = logs
+	group.Topic = proto.String(client.topic)
+	group.Source = proto.String(logSource)
 	body, err := proto.Marshal(&group)
 	if len(body) > MaxLogGroupSize {
 		// Extreme cases when log group size exceed the maximum
@@ -150,6 +164,8 @@ func (client *SlsClient) splitSendLogs(logs []*Log) error {
 		group := LogGroup{
 			Logs: make([]*Log, 0),
 		}
+		group.Topic = proto.String(client.topic)
+		group.Source = proto.String(logSource)
 		for cursor < len(logs) {
 			log := logs[cursor]
 			size := logSize(log)

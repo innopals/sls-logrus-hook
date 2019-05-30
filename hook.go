@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -25,7 +27,6 @@ const (
 type SlsLogrusHook struct {
 	client       *SlsClient
 	sendInterval time.Duration
-	topic        string
 	c            chan *Log
 	lock         *sync.Mutex
 	sending      bool
@@ -34,7 +35,7 @@ type SlsLogrusHook struct {
 
 // NewSlsLogrusHook create logrus hook
 func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, logStore string, topic string) (*SlsLogrusHook, error) {
-	client, err := NewSlsClient(endpoint, accessKey, accessSecret, logStore)
+	client, err := NewSlsClient(endpoint, accessKey, accessSecret, logStore, topic)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Unable to create sls logrus hook")
 	}
@@ -43,7 +44,6 @@ func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, lo
 	}
 	hook := &SlsLogrusHook{
 		client:       client,
-		topic:        topic,
 		c:            make(chan *Log, BufferSize),
 		lock:         &sync.Mutex{},
 		sending:      false,
@@ -74,16 +74,27 @@ func (hook *SlsLogrusHook) SetSendInterval(interval time.Duration) {
 
 // Fire implement logrus Hook interface
 func (hook *SlsLogrusHook) Fire(entry *logrus.Entry) error {
+	const depth = 32
+	var pcs [depth]uintptr
+	n := runtime.Callers(3, pcs[:])
+	var location string
+	for _, pc := range pcs[0:n] {
+		file, line := getFileLocation(pc)
+		if !strings.Contains(file, "github.com/sirupsen/logrus") {
+			location = fmt.Sprintf("%s#%d", file, line)
+			break
+		}
+	}
 	log := &Log{
 		Time: proto.Uint32(uint32(time.Now().Unix())),
 		Contents: []*LogContent{
 			{
-				Key:   proto.String("__topic__"),
-				Value: proto.String(hook.topic),
+				Key:   proto.String("level"),
+				Value: proto.String(strings.ToUpper(entry.Level.String())),
 			},
 			{
-				Key:   proto.String("level"),
-				Value: proto.String(entry.Level.String()),
+				Key:   proto.String("location"),
+				Value: proto.String(location),
 			},
 			{
 				Key:   proto.String("message"),
@@ -92,7 +103,7 @@ func (hook *SlsLogrusHook) Fire(entry *logrus.Entry) error {
 		},
 	}
 	for k, v := range entry.Data {
-		if k == "__topic__" || k == "level" || k == "message" {
+		if k == "__topic__" || k == "__source__" || k == "level" || k == "message" {
 			k = "field_" + k
 		}
 		var value string
@@ -100,11 +111,11 @@ func (hook *SlsLogrusHook) Fire(entry *logrus.Entry) error {
 		case string:
 			value = v
 		case error:
-			value = v.Error()
+			value = fmt.Sprintf("%+v", v)
 		default:
 			bytes, err := json.Marshal(v)
 			if err != nil {
-				value = fmt.Sprint(v)
+				value = fmt.Sprintf("%+v", v)
 			} else {
 				value = string(bytes)
 			}
@@ -188,4 +199,12 @@ func fallbackSendLogs(logs []*Log) error {
 		_, _ = fmt.Fprint(os.Stdout, log, "\n")
 	}
 	return nil
+}
+
+func getFileLocation(f uintptr) (string, int) {
+	fn := runtime.FuncForPC(f - 1)
+	if fn == nil {
+		return "unknown", 0
+	}
+	return fn.FileLine(f - 1)
 }

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -97,10 +98,14 @@ func TestLogs(t *testing.T) {
 		apiTime, err := time.Parse(http.TimeFormat, date)
 		assert.Nil(t, err)
 		assert.InDelta(t, apiTime.Unix(), int32(*group.Logs[0].Time), 1)
-		assert.Equal(t, "__topic__", *group.Logs[0].Contents[0].Key)
-		assert.Equal(t, "test", *group.Logs[0].Contents[0].Value)
-		assert.Equal(t, "level", *group.Logs[0].Contents[1].Key)
-		assert.Equal(t, "info", *group.Logs[0].Contents[1].Value)
+		assert.Equal(t, "test", *group.Topic)
+		hostname, err := os.Hostname()
+		assert.Nil(t, err)
+		assert.Equal(t, hostname, *group.Source)
+		assert.Equal(t, "level", *group.Logs[0].Contents[0].Key)
+		assert.Equal(t, "INFO", *group.Logs[0].Contents[0].Value)
+		assert.Equal(t, "location", *group.Logs[0].Contents[1].Key)
+		assert.Contains(t, *group.Logs[0].Contents[1].Value, "hook_test.go")
 		assert.Equal(t, "message", *group.Logs[0].Contents[2].Key)
 		assert.Equal(t, "Hello world!", *group.Logs[0].Contents[2].Value)
 	case <-time.After(300 * time.Millisecond):
