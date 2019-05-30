@@ -34,6 +34,12 @@ logrus.SetFormatter(&hook.NoopFormatter{})
 logrus.SetOutput(ioutil.Discard)
 ```
 
+Disable locks.
+
+```golang
+logrus.SetNoLock()
+```
+
 Setting send interval if necessary.
 
 ```golang
