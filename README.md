@@ -37,7 +37,7 @@ logrus.SetOutput(ioutil.Discard)
 Disable locks.
 
 ```golang
-logrus.SetNoLock()
+logrus.StandardLogger().SetNoLock()
 ```
 
 Setting send interval if necessary.
