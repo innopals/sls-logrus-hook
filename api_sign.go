@@ -8,13 +8,9 @@ import (
 	"strings"
 )
 
-func ApiSign(secret string, method string, headers map[string]string, resource string) (string, error) {
-
-	signItems := make([]string, 0)
-	signItems = append(signItems, method)
-
+// APISign Create signature for sls api
+func APISign(secret string, method string, headers map[string]string, resource string) (string, error) {
 	var contentMD5, contentType, date string
-
 	if v, exist := headers[HeaderContentMd5]; exist {
 		contentMD5 = v
 	}
@@ -32,7 +28,7 @@ func ApiSign(secret string, method string, headers map[string]string, resource s
 		}
 	}
 
-	sort.Sort(sort.StringSlice(logHeaders))
+	logHeaders = sort.StringSlice(logHeaders)
 
 	stringToSign := method + "\n" +
 		contentMD5 + "\n" +

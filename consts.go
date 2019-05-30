@@ -1,5 +1,6 @@
 package hook
 
+// Sls constants
 const (
 	SlsVersion               = "0.6.0"
 	SlsSignatureMethod       = "hmac-sha1"

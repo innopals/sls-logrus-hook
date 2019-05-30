@@ -14,12 +14,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Default config for sls logrus hooks
 const (
 	BufferSize          = 4096
 	DefaultSendInterval = 300 * time.Millisecond
 	MaxBatchSize        = 300
 )
 
+// SlsLogrusHook logrus hook for sls
 type SlsLogrusHook struct {
 	client       *SlsClient
 	sendInterval time.Duration
@@ -30,6 +32,7 @@ type SlsLogrusHook struct {
 	realSendLogs func(logs []*Log) error
 }
 
+// NewSlsLogrusHook create logrus hook
 func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, logStore string, topic string) (*SlsLogrusHook, error) {
 	client, err := NewSlsClient(endpoint, accessKey, accessSecret, logStore)
 	if err != nil {
@@ -64,10 +67,12 @@ func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, lo
 	return hook, errors.WithStack(err)
 }
 
+// SetSendInterval change batch send interval
 func (hook *SlsLogrusHook) SetSendInterval(interval time.Duration) {
 	hook.sendInterval = interval
 }
 
+// Fire implement logrus Hook interface
 func (hook *SlsLogrusHook) Fire(entry *logrus.Entry) error {
 	log := &Log{
 		Time: proto.Uint32(uint32(time.Now().Unix())),
@@ -116,10 +121,12 @@ func (hook *SlsLogrusHook) Fire(entry *logrus.Entry) error {
 	return nil
 }
 
+// Levels implement logrus Hook interface
 func (hook *SlsLogrusHook) Levels() []logrus.Level {
 	return logrus.AllLevels
 }
 
+// Flush ensure logs are flush through sls api
 func (hook *SlsLogrusHook) Flush(timeout time.Duration) {
 	until := time.Now().UnixNano() + int64(timeout)
 	for (hook.sending || len(hook.c) > 0) && time.Now().UnixNano() < until {

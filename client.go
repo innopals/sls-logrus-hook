@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Default config for sls client
 const (
 	DefaultTimeout  = 5 * time.Second
 	MaxLogItemSize  = 512 * 1024      // Safe value for maximum 1M log item.
@@ -22,6 +23,7 @@ const (
 	MaxLogBatchSize = 1024            // Safe value for batch send size
 )
 
+// SlsClient the client struct for sls connection
 type SlsClient struct {
 	endpoint     string
 	accessKey    string
@@ -31,6 +33,7 @@ type SlsClient struct {
 	client       *http.Client
 }
 
+// NewSlsClient create a new sls client
 func NewSlsClient(endpoint string, accessKey string, accessSecret string, logStore string) (*SlsClient, error) {
 	if len(endpoint) == 0 {
 		return nil, errors.New("Sls endpoint should not be empty")
@@ -56,6 +59,7 @@ func NewSlsClient(endpoint string, accessKey string, accessSecret string, logSto
 	}, nil
 }
 
+// Ping sls api auth & connection
 func (client *SlsClient) Ping() error {
 	method := "GET"
 	resource := "logstores/" + client.logStore
@@ -66,11 +70,11 @@ func (client *SlsClient) Ping() error {
 	headers[HeaderHost] = client.endpoint
 	headers[HeaderDate] = time.Now().UTC().Format(http.TimeFormat)
 
-	if sign, e := ApiSign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource)); e != nil {
+	sign, e := APISign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource))
+	if e != nil {
 		return errors.WithMessage(e, "Fail to create sign for sls")
-	} else {
-		headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 	}
+	headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 
 	url := client.endpoint + "/" + resource
 	if !strings.HasPrefix(client.endpoint, "http://") || strings.HasPrefix(client.endpoint, "https://") {
@@ -104,6 +108,7 @@ func (client *SlsClient) Ping() error {
 	return nil
 }
 
+// SendLogs using sls api & handle extreme cases
 func (client *SlsClient) SendLogs(logs []*Log) error {
 	if len(logs) == 0 {
 		return nil
@@ -179,9 +184,8 @@ func (client *SlsClient) splitSendLogs(logs []*Log) error {
 	}
 	if len(errorList) == 0 {
 		return nil
-	} else {
-		return errors.Errorf("Fail to send logs due to the following errors: %+v", errorList)
 	}
+	return errors.Errorf("Fail to send logs due to the following errors: %+v", errorList)
 }
 
 func (client *SlsClient) sendPb(logContent []byte) error {
@@ -199,12 +203,11 @@ func (client *SlsClient) sendPb(logContent []byte) error {
 	headers[HeaderLogBodyRawSize] = "0"
 	headers[HeaderHost] = client.endpoint
 	headers[HeaderDate] = time.Now().UTC().Format(http.TimeFormat)
-
-	if sign, e := ApiSign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource)); e != nil {
+	sign, e := APISign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource))
+	if e != nil {
 		return errors.WithMessage(e, "Fail to create sign for sls")
-	} else {
-		headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 	}
+	headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 
 	url := client.endpoint + "/" + resource
 	if !strings.HasPrefix(client.endpoint, "http://") || strings.HasPrefix(client.endpoint, "https://") {

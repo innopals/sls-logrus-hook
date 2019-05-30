@@ -1,9 +1,10 @@
 package hook_test
 
 import (
-	"github.com/stretchr/testify/assert"
-	"sls-logrus-hook"
+	hook "sls-logrus-hook"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestApiSign(t *testing.T) {
@@ -14,7 +15,7 @@ func TestApiSign(t *testing.T) {
 	headers[hook.HeaderHost] = "test.cn-hangzhou.log.aliyuncs.com"
 	headers[hook.HeaderDate] = "Wed, 29 May 2019 16:00:00 GMT"
 
-	sign, err := hook.ApiSign("63D0CEA9D550E495FDE1B81310951BD7", "POST", headers, "logstores/test")
+	sign, err := hook.APISign("63D0CEA9D550E495FDE1B81310951BD7", "POST", headers, "logstores/test")
 	assert.Nil(t, err)
 	assert.Equal(t, "KYke+ObziWJpOk305xnagI/omps=", sign)
 
@@ -29,7 +30,7 @@ func TestApiSign(t *testing.T) {
 	headers[hook.HeaderContentLength] = "12"
 	headers[hook.HeaderLogBodyRawSize] = "0"
 
-	sign, err = hook.ApiSign("2974A71FE7FCCEF63C436826DD53BA6D", "POST", headers, "logstores/test")
+	sign, err = hook.APISign("2974A71FE7FCCEF63C436826DD53BA6D", "POST", headers, "logstores/test")
 	assert.Nil(t, err)
 	assert.Equal(t, "rAU8ZoY8y3GM9cA8XDkf6GiJVi8=", sign)
 }
