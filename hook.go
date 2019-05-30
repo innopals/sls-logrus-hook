@@ -109,6 +109,9 @@ func (hook *SlsLogrusHook) Fire(entry *logrus.Entry) error {
 				value = string(bytes)
 			}
 		}
+		if len(value) == 0 {
+			continue
+		}
 		log.Contents = append(log.Contents, &LogContent{
 			Key:   proto.String(k),
 			Value: proto.String(value),
