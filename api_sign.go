@@ -28,7 +28,7 @@ func APISign(secret string, method string, headers map[string]string, resource s
 		}
 	}
 
-	sort.Sort(sort.StringSlice(logHeaders))
+	sort.Strings(logHeaders)
 
 	stringToSign := method + "\n" +
 		contentMD5 + "\n" +
