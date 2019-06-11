@@ -4,4 +4,4 @@ go:
   - "1.11"
   - "1.12"
 script:
-  - go test
+  - ./coverage.sh
