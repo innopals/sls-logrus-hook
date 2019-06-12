@@ -74,11 +74,12 @@ func TestLogs(t *testing.T) {
 		t.Errorf("Mock server should have received a request.")
 	}
 
-	logrus.AddHook(slsLogrusHook)
-	logrus.SetFormatter(&hook.NoopFormatter{})
-	logrus.SetOutput(ioutil.Discard)
+	logger := logrus.New()
+	logger.AddHook(slsLogrusHook)
+	logger.SetFormatter(&hook.NoopFormatter{})
+	logger.SetOutput(ioutil.Discard)
 
-	logrus.Info("Hello world!")
+	logger.Info("Hello world!")
 	var date string
 	select {
 	case wrapper := <-requests:
@@ -110,5 +111,55 @@ func TestLogs(t *testing.T) {
 		assert.Equal(t, "Hello world!", *group.Logs[0].Contents[2].Value)
 	case <-time.After(300 * time.Millisecond):
 		t.Errorf("Mock server should have received a request.")
+	}
+}
+
+
+func BenchmarkLogs(b *testing.B) {
+	mockServer := &http.Server{
+		Addr: ":8080",
+		Handler: http.HandlerFunc(func(writer http.ResponseWriter, req *http.Request) {
+			writer.WriteHeader(200)
+		}),
+		ReadTimeout:    3 * time.Second,
+		WriteTimeout:   3 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		b.Fatal("Fail to find a free port", err)
+	}
+	go func() {
+		_ = mockServer.Serve(listener)
+	}()
+	port := listener.Addr().(*net.TCPAddr).Port
+	endpoint := fmt.Sprintf("127.0.0.1:%d", port)
+	slsLogrusHook, err := hook.NewSlsLogrusHook(endpoint, "test", "test", "test", "test")
+	assert.Nil(b, err)
+	slsLogrusHook.SetSendInterval(100 * time.Millisecond)
+	defer func() {
+		slsLogrusHook.Flush(time.Second)
+		_ = mockServer.Close()
+		_ = listener.Close()
+	}()
+
+	logger := logrus.New()
+	logger.AddHook(slsLogrusHook)
+	logger.SetFormatter(&hook.NoopFormatter{})
+	logger.SetOutput(ioutil.Discard)
+
+	for n := 0; n < b.N; n++ {
+		logger.Infof("Log sequence #%d", n)
+	}
+}
+
+
+func BenchmarkLogrus(b *testing.B) {
+	logger := logrus.New()
+	logger.SetFormatter(&hook.NoopFormatter{})
+	logger.SetOutput(ioutil.Discard)
+
+	for n := 0; n < b.N; n++ {
+		logger.Infof("Log sequence #%d", n)
 	}
 }
