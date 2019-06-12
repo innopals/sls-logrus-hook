@@ -64,7 +64,7 @@ func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, lo
 		fmt.Println("Flushing logs")
 		time.Sleep(time.Second)
 	}()
-	return hook, errors.WithStack(err)
+	return hook, err
 }
 
 // SetSendInterval change batch send interval

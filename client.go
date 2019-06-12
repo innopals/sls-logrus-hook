@@ -82,10 +82,7 @@ func (client *SlsClient) Ping() error {
 	headers[HeaderHost] = client.endpoint
 	headers[HeaderDate] = time.Now().UTC().Format(http.TimeFormat)
 
-	sign, e := APISign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource))
-	if e != nil {
-		return errors.WithMessage(e, "Fail to create sign for sls")
-	}
+	sign := APISign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource))
 	headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 
 	url := client.endpoint + "/" + resource
@@ -219,10 +216,7 @@ func (client *SlsClient) sendPb(logContent []byte) error {
 	headers[HeaderLogBodyRawSize] = "0"
 	headers[HeaderHost] = client.endpoint
 	headers[HeaderDate] = time.Now().UTC().Format(http.TimeFormat)
-	sign, e := APISign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource))
-	if e != nil {
-		return errors.WithMessage(e, "Fail to create sign for sls")
-	}
+	sign := APISign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource))
 	headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 
 	url := client.endpoint + "/" + resource

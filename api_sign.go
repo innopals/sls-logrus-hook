@@ -9,7 +9,7 @@ import (
 )
 
 // APISign Create signature for sls api
-func APISign(secret string, method string, headers map[string]string, resource string) (string, error) {
+func APISign(secret string, method string, headers map[string]string, resource string) string {
 	var contentMD5, contentType, date string
 	if v, exist := headers[HeaderContentMd5]; exist {
 		contentMD5 = v
@@ -38,8 +38,6 @@ func APISign(secret string, method string, headers map[string]string, resource s
 		resource
 
 	sha1Hash := hmac.New(sha1.New, []byte(secret))
-	if _, e := sha1Hash.Write([]byte(stringToSign)); e != nil {
-		return "", e
-	}
-	return base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil)), nil
+	sha1Hash.Write([]byte(stringToSign))
+	return base64.StdEncoding.EncodeToString(sha1Hash.Sum(nil))
 }
