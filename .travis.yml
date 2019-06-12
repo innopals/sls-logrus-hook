@@ -5,4 +5,3 @@ go:
   - "1.12"
 script:
   - ./coverage.sh
-  - go test -bench=.

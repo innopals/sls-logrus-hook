@@ -114,8 +114,7 @@ func TestLogs(t *testing.T) {
 	}
 }
 
-
-func BenchmarkLogs(b *testing.B) {
+func BenchmarkSlsHookWithogLocation(b *testing.B) {
 	mockServer := &http.Server{
 		Addr: ":8080",
 		Handler: http.HandlerFunc(func(writer http.ResponseWriter, req *http.Request) {
@@ -153,10 +152,8 @@ func BenchmarkLogs(b *testing.B) {
 	}
 }
 
-
-func BenchmarkLogrus(b *testing.B) {
+func BenchmarkLogrusDefaultFormatterWithoutLogLocation(b *testing.B) {
 	logger := logrus.New()
-	logger.SetFormatter(&hook.NoopFormatter{})
 	logger.SetOutput(ioutil.Discard)
 
 	for n := 0; n < b.N; n++ {

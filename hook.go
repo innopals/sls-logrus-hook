@@ -74,17 +74,18 @@ func (hook *SlsLogrusHook) SetSendInterval(interval time.Duration) {
 
 // Fire implement logrus Hook interface
 func (hook *SlsLogrusHook) Fire(entry *logrus.Entry) error {
-	const depth = 32
+	const depth = 16
 	var pcs [depth]uintptr
-	n := runtime.Callers(3, pcs[:])
+	n := runtime.Callers(5, pcs[:])
 	var location string
 	for _, pc := range pcs[0:n] {
-		file, line := getFileLocation(pc)
-		if !strings.Contains(file, "github.com/sirupsen/logrus") {
+		if !strings.HasPrefix(getFunctionName(pc), "github.com/sirupsen/logrus") {
+			file, line := getFileLocation(pc)
 			location = fmt.Sprintf("%s#%d", file, line)
 			break
 		}
 	}
+
 	log := &Log{
 		Time: proto.Uint32(uint32(time.Now().Unix())),
 		Contents: []*LogContent{
@@ -207,4 +208,13 @@ func getFileLocation(f uintptr) (string, int) {
 		return "unknown", 0
 	}
 	return fn.FileLine(f - 1)
+}
+
+
+func getFunctionName(f uintptr) string {
+	fn := runtime.FuncForPC(f - 1)
+	if fn == nil {
+		return "unknown"
+	}
+	return fn.Name()
 }
