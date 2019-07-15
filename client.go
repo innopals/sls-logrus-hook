@@ -86,7 +86,7 @@ func (client *SlsClient) Ping() error {
 	headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 
 	url := client.endpoint + "/" + resource
-	if !strings.HasPrefix(client.endpoint, "http://") || strings.HasPrefix(client.endpoint, "https://") {
+	if !strings.HasPrefix(client.endpoint, "http://") || !strings.HasPrefix(client.endpoint, "https://") {
 		url = "http://" + client.endpoint + "/" + resource
 	}
 
