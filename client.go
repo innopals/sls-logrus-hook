@@ -45,7 +45,7 @@ type SlsClient struct {
 }
 
 // NewSlsClient create a new sls client
-func NewSlsClient(endpoint string, accessKey string, accessSecret string, logStore string, topic string) (*SlsClient, error) {
+func NewSlsClient(endpoint string, accessKey string, accessSecret string, logStore string, topic string, timeout time.Duration) (*SlsClient, error) {
 	if len(endpoint) == 0 {
 		return nil, errors.New("Sls endpoint should not be empty")
 	}
@@ -66,7 +66,7 @@ func NewSlsClient(endpoint string, accessKey string, accessSecret string, logSto
 		topic:        topic,
 		lock:         &sync.Mutex{},
 		client: &http.Client{
-			Timeout: DefaultTimeout,
+			Timeout: timeout,
 		},
 	}, nil
 }

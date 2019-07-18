@@ -33,9 +33,8 @@ type SlsLogrusHook struct {
 	realSendLogs func(logs []*Log) error
 }
 
-// NewSlsLogrusHook create logrus hook
-func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, logStore string, topic string) (*SlsLogrusHook, error) {
-	client, err := NewSlsClient(endpoint, accessKey, accessSecret, logStore, topic)
+func New(endpoint string, accessKey string, accessSecret string, logStore string, topic string, timeout time.Duration) (*SlsLogrusHook, error) {
+	client, err := NewSlsClient(endpoint, accessKey, accessSecret, logStore, topic, timeout)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Unable to create sls logrus hook")
 	}
@@ -65,6 +64,18 @@ func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, lo
 		time.Sleep(time.Second)
 	}()
 	return hook, err
+}
+
+// NewSlsLogrusHook create logrus hook
+func NewSlsLogrusHook(endpoint string, accessKey string, accessSecret string, logStore string, topic string) (*SlsLogrusHook, error) {
+	return New(
+		endpoint,
+		accessKey,
+		accessSecret,
+		logStore,
+		topic,
+		DefaultTimeout,
+	)
 }
 
 // SetSendInterval change batch send interval
@@ -209,7 +220,6 @@ func getFileLocation(f uintptr) (string, int) {
 	}
 	return fn.FileLine(f - 1)
 }
-
 
 func getFunctionName(f uintptr) string {
 	fn := runtime.FuncForPC(f - 1)
