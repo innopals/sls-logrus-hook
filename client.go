@@ -45,28 +45,28 @@ type SlsClient struct {
 }
 
 // NewSlsClient create a new sls client
-func NewSlsClient(endpoint string, accessKey string, accessSecret string, logStore string, topic string) (*SlsClient, error) {
-	if len(endpoint) == 0 {
+func NewSlsClient(config *Config) (*SlsClient, error) {
+	if len(config.Endpoint) == 0 {
 		return nil, errors.New("Sls endpoint should not be empty")
 	}
-	if len(accessKey) == 0 {
+	if len(config.AccessKey) == 0 {
 		return nil, errors.New("Sls access key should not be empty")
 	}
-	if len(accessSecret) == 0 {
+	if len(config.AccessSecret) == 0 {
 		return nil, errors.New("Sls access secret should not be empty")
 	}
-	if len(logStore) == 0 {
+	if len(config.LogStore) == 0 {
 		return nil, errors.New("Sls log store should not be empty")
 	}
 	return &SlsClient{
-		endpoint:     endpoint,
-		accessKey:    accessKey,
-		accessSecret: accessSecret,
-		logStore:     logStore,
-		topic:        topic,
+		endpoint:     config.Endpoint,
+		accessKey:    config.AccessKey,
+		accessSecret: config.AccessSecret,
+		logStore:     config.LogStore,
+		topic:        config.Topic,
 		lock:         &sync.Mutex{},
 		client: &http.Client{
-			Timeout: DefaultTimeout,
+			Timeout: config.Timeout,
 		},
 	}, nil
 }
