@@ -58,8 +58,15 @@ func NewSlsClient(config *Config) (*SlsClient, error) {
 	if len(config.LogStore) == 0 {
 		return nil, errors.New("Sls log store should not be empty")
 	}
+	endpoint := config.Endpoint
+	if !strings.HasPrefix(endpoint, "http://") || !strings.HasPrefix(endpoint, "https://") {
+		endpoint = "http://" + endpoint
+	}
+	if strings.HasSuffix(endpoint, "/") {
+		endpoint = endpoint[:len(endpoint)-1]
+	}
 	return &SlsClient{
-		endpoint:     config.Endpoint,
+		endpoint:     endpoint,
 		accessKey:    config.AccessKey,
 		accessSecret: config.AccessSecret,
 		logStore:     config.LogStore,
@@ -74,7 +81,7 @@ func NewSlsClient(config *Config) (*SlsClient, error) {
 // Ping sls api auth & connection
 func (client *SlsClient) Ping() error {
 	method := "GET"
-	resource := "logstores/" + client.logStore
+	resource := "/logstores/" + client.logStore
 	headers := make(map[string]string)
 
 	headers[HeaderLogVersion] = SlsVersion
@@ -82,13 +89,10 @@ func (client *SlsClient) Ping() error {
 	headers[HeaderHost] = client.endpoint
 	headers[HeaderDate] = time.Now().UTC().Format(http.TimeFormat)
 
-	sign := APISign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource))
+	sign := APISign(client.accessSecret, method, headers, resource)
 	headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 
-	url := client.endpoint + "/" + resource
-	if !strings.HasPrefix(client.endpoint, "http://") || !strings.HasPrefix(client.endpoint, "https://") {
-		url = "http://" + client.endpoint + "/" + resource
-	}
+	url := client.endpoint + resource
 
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
@@ -203,7 +207,7 @@ func (client *SlsClient) splitSendLogs(logs []*Log) error {
 
 func (client *SlsClient) sendPb(logContent []byte) error {
 	method := "POST"
-	resource := "logstores/" + client.logStore + "/shards/lb"
+	resource := "/logstores/" + client.logStore + "/shards/lb"
 	headers := make(map[string]string)
 	logMD5 := md5.Sum(logContent)
 	strMd5 := strings.ToUpper(fmt.Sprintf("%x", logMD5))
@@ -216,13 +220,10 @@ func (client *SlsClient) sendPb(logContent []byte) error {
 	headers[HeaderLogBodyRawSize] = "0"
 	headers[HeaderHost] = client.endpoint
 	headers[HeaderDate] = time.Now().UTC().Format(http.TimeFormat)
-	sign := APISign(client.accessSecret, method, headers, fmt.Sprintf("/%s", resource))
+	sign := APISign(client.accessSecret, method, headers, resource)
 	headers[HeaderAuthorization] = fmt.Sprintf("LOG %s:%s", client.accessKey, sign)
 
-	url := client.endpoint + "/" + resource
-	if !strings.HasPrefix(client.endpoint, "http://") || strings.HasPrefix(client.endpoint, "https://") {
-		url = "http://" + client.endpoint + "/" + resource
-	}
+	url := client.endpoint + resource
 	postBodyReader := bytes.NewBuffer(logContent)
 
 	req, err := http.NewRequest(method, url, postBodyReader)
