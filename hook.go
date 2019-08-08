@@ -202,8 +202,10 @@ func (hook *SlsLogrusHook) work() {
 			if len(hook.c) == 0 {
 				break
 			}
+			continue
 		}
-		if err := hook.realSendLogs(logs[0:count]); err != nil {
+		logs = logs[0:count]
+		if err := hook.realSendLogs(logs); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Error sending logs, error: %+v\n", err)
 			_ = fallbackSendLogs(logs)
 		}
