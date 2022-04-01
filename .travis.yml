@@ -3,5 +3,7 @@ language: go
 go:
   - "1.11"
   - "1.12"
+  - "1.17"
+  - "1.18"
 script:
   - ./coverage.sh
